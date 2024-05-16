@@ -1,20 +1,25 @@
 import csv
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse, urlunparse
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
-import os
 
 links=[]
-with open(r"Funciones\links_comercio.txt","r",encoding="utf-8") as file:
+with open("Links/links_comercio.txt","r",encoding="utf-8") as file:
     for line in file:
         links.append(file.readline().replace('\n',''))
+
+def remove_scripts(soup):
+    for script in soup(["script", "style"]):
+        script.extract()
 
 def extract_data(link):
     try:
         response = requests.get(link)
         soup = BeautifulSoup(response.content, 'html.parser')
+
+        # Remove scripts
+        remove_scripts(soup)
 
         headline_tag = soup.find('h1', itemprop='name')
         headline = headline_tag.text.strip() if headline_tag else ''
@@ -44,14 +49,13 @@ def extract_data(link):
         antetitulo_tag = soup.find('div', class_='st-social f just-between')
         antetitulo = antetitulo_tag.text.strip() if antetitulo_tag else ''
 
-        return (link, headline, bajada, antetitulo, article_body.replace('\n', '').replace(';',',').replace("\r",""), date, tags_str)
+        return (link, headline, bajada, antetitulo, article_body.replace('\n', '').replace("\r",""), date, tags_str)
     except Exception as e:
         print(f"Error processing {link}: {e}")
         return None
 
 with ThreadPoolExecutor() as executor, open("comercio.csv", 'w', encoding='UTF-8') as doc_csv:
-    doc_csv.write("link;headline;bajada;antetitulo;cuerpo;dia;etiquetas\n")
+    doc_csv.write("link^^headline^^bajada^^antetitulo^^cuerpo^^dia^^etiquetas\n")
     for result in executor.map(extract_data, links):
         if result:
-            doc_csv.write(f"{';'.join(result)}\n")
-        
+            doc_csv.write(f"^^".join(result) + '\n')
